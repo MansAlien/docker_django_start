@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  web:
+    image: mansalien/django_start:v0.1
+    build:
+      context: .
+    expose:
+      - 8000
+    volumes:
+      - .:/app
+      - ~/orders:/root/orders
+    env_file:
+      - .env
+    depends_on:
+      - postgres_db
+    restart: always
+
+  postgres_db:
+    image: postgres:16
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${P_DATABASE}
+      - POSTGRES_USER=${P_USER}
+      - POSTGRES_PASSWORD=${P_PASSWORD}
+    restart: always
+
+  backup:
+    image: postgres:16
+    volumes:
+      - ./db_backup:/backup
+    command: >
+      bash -c "while true; do
+        PGPASSWORD=AAsd@01203394542 pg_dump -h postgres_db -U alien -Fc vision > /backup/$$(date +%Y-%m-%d-%H-%M-%S).dump
+        echo ""Backup done at $$(date +%Y-%m-%d_%H:%M:%S)""
+        ls -1 /backup/*.dump | head -n -5 | xargs rm -f
+        sleep 43200
+      done"
+    environment:
+      - P_DATABASE=${P_DATABASE}
+      - P_USER=${P_USER}
+      - P_PASSWORD=${P_PASSWORD}
+    depends_on:
+      - postgres_db
+    restart: always
+
+  nginx:
+    image: nginx:1.25
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - web
+    restart: always
+
+volumes:
+  postgres_data:
+
